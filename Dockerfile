@@ -13,10 +13,10 @@ RUN npm ci
 COPY . .
 
 # 确保环境文件存在
-RUN test -f .env.staging || (echo "Error: .env.staging file not found" && exit 1)
+RUN test -f .env.production || (echo "Error: .env.staging file not found" && exit 1)
 
 # 构建并导出静态文件到 out/
-RUN npm run build
+RUN npm run build:prod
 
 # ---------- Run Stage ----------
 FROM nginx:alpine
