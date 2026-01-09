@@ -13,6 +13,11 @@
 # testing
 /coverage
 
+# Editor/IDE
+.idea/
+.vscode/
+_tasks/
+
 # next.js
 /.next/
 /out/
@@ -31,7 +36,6 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
 
 # vercel
 .vercel
@@ -39,3 +43,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+./_tasks
+*.sh
