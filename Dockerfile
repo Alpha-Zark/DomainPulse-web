@@ -12,6 +12,10 @@ RUN npm run build
 
 FROM nginx:alpine AS runner
 
+RUN apk --no-cache add tzdata
+ENV TZ=Asia/Shanghai
+RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 COPY --from=builder /app/out /usr/share/nginx/html
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 
