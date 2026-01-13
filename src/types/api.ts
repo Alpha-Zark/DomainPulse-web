@@ -163,6 +163,8 @@ export interface AdminWhoisDomain {
   id: number;
   domain: string;
   enabled: boolean;
+  auto_update: boolean; // Auto update whois info
+  expiration_date: string; // Domain expiration date (ISO 8601 format)
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
 }

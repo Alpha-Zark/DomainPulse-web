@@ -314,18 +314,30 @@ export const whoisDomainsApi = {
   },
 
   // Create whois domain (Admin API)
-  async create(domain: string): Promise<AdminResponse<AdminWhoisDomain>> {
+  async create(domain: string, autoUpdate: boolean = true): Promise<AdminResponse<AdminWhoisDomain>> {
     return apiRequest<AdminResponse<AdminWhoisDomain>>('/admin/whois/add', {
       method: 'POST',
-      body: JSON.stringify({ domain }),
+      body: JSON.stringify({ domain, auto_update: autoUpdate }),
     });
   },
 
   // Update whois domain (Admin API)
-  async update(id: number, domain: string, enabled: boolean): Promise<AdminResponse<AdminWhoisDomain>> {
+  async update(
+    id: number,
+    domain: string,
+    enabled: boolean,
+    autoUpdate: boolean,
+    expirationDate: string
+  ): Promise<AdminResponse<AdminWhoisDomain>> {
     return apiRequest<AdminResponse<AdminWhoisDomain>>('/admin/whois/edit', {
       method: 'PUT',
-      body: JSON.stringify({ id, domain, enabled }),
+      body: JSON.stringify({
+        id,
+        domain,
+        enabled,
+        auto_update: autoUpdate,
+        expiration_date: expirationDate
+      }),
     });
   },
 

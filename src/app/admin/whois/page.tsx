@@ -7,19 +7,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Switch } from '@/components/ui/switch';
 import WhoisDomainAddDialog from '@/components/whois-domain-add-dialog';
 import WhoisDomainEditDialog from '@/components/whois-domain-edit-dialog';
-import WhoisDomainDeleteDialog from '@/components/whois-domain-delete-dialog';
 import { AdminWhoisDomain } from '@/types/api';
 import { whoisDomainsApi, ApiError } from '@/lib/api-client';
-import { 
-  Search, 
-  Plus, 
-  RefreshCw, 
-  AlertCircle, 
+import {
+  RefreshCw,
+  AlertCircle,
   Globe,
-  Calendar,
-  Building
+  Activity,
+  XCircle,
+  CheckCircle,
+  Edit,
+  Trash2
 } from 'lucide-react';
 
 
@@ -27,6 +29,7 @@ function WhoisDomainsContent() {
   const [domains, setDomains] = useState<AdminWhoisDomain[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingDomain, setEditingDomain] = useState<AdminWhoisDomain | null>(null);
 
   const fetchDomains = async () => {
     setLoading(true);
@@ -66,15 +69,92 @@ function WhoisDomainsContent() {
 
   const handleEditSuccess = async () => {
     // Refresh the domains list after successful edit
+    setEditingDomain(null);
     await fetchDomains();
   };
 
-  const handleDeleteSuccess = async () => {
-    // Refresh the domains list after successful deletion
-    await fetchDomains();
+  const handleEdit = (domain: AdminWhoisDomain) => {
+    setEditingDomain(domain);
+  };
+
+  const toggleAutoUpdate = async (domainId: number, currentValue: boolean) => {
+    try {
+      const domain = domains.find(d => d.id === domainId);
+      if (!domain) return;
+
+      await whoisDomainsApi.update(
+        domainId,
+        domain.domain,
+        domain.enabled,
+        !currentValue,
+        domain.expiration_date
+      );
+
+      // Update local state
+      setDomains(domains.map(d =>
+        d.id === domainId ? { ...d, auto_update: !currentValue, updated_at: new Date().toISOString() } : d
+      ));
+    } catch (error) {
+      console.error('Failed to toggle auto_update:', error);
+      if (error instanceof ApiError) {
+        setError(`更新失败: ${error.message}`);
+      }
+    }
+  };
+
+  const toggleDomainStatus = async (domainId: number) => {
+    const domain = domains.find(d => d.id === domainId);
+    if (!domain) return;
+
+    setLoading(true);
+
+    try {
+      await whoisDomainsApi.update(
+        domainId,
+        domain.domain,
+        !domain.enabled,
+        domain.auto_update,
+        domain.expiration_date
+      );
+
+      setDomains(domains.map(d =>
+        d.id === domainId ? { ...d, enabled: !d.enabled, updated_at: new Date().toISOString() } : d
+      ));
+    } catch (error) {
+      console.error('Failed to toggle domain status:', error);
+      if (error instanceof ApiError) {
+        setError(`状态切换失败: ${error.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (domainId: number) => {
+    if (!window.confirm('确定要删除这个域名吗？')) return;
+
+    setLoading(true);
+
+    try {
+      await whoisDomainsApi.delete(domainId);
+      setDomains(domains.filter(d => d.id !== domainId));
+    } catch (error) {
+      console.error('Failed to delete domain:', error);
+
+      if (error instanceof ApiError) {
+        setError(`删除失败: ${error.message}`);
+      } else {
+        setError('删除失败，请稍后重试');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (isoString: string) => {
+    if (!isoString || isoString === '0001-01-01T00:00:00Z') {
+      return '-';
+    }
     return new Date(isoString).toLocaleDateString('zh-CN', {
       year: 'numeric',
       month: '2-digit',
@@ -123,40 +203,34 @@ function WhoisDomainsContent() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">总域名数</CardTitle>
-                <Search className="h-4 w-4 text-muted-foreground" />
+                <Globe className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{domains.length}</div>
-                <p className="text-xs text-muted-foreground">正在监控的域名</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">本月新增</CardTitle>
-                <Plus className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {domains.filter(d => {
-                    const domainDate = new Date(d.created_at);
-                    const currentDate = new Date();
-                    return domainDate.getMonth() === currentDate.getMonth() &&
-                           domainDate.getFullYear() === currentDate.getFullYear();
-                  }).length}
-                </div>
-                <p className="text-xs text-muted-foreground">本月添加的域名</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">监控状态</CardTitle>
-                <Building className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">活跃域名</CardTitle>
+                <Activity className="h-4 w-4 text-green-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">正常</div>
-                <p className="text-xs text-muted-foreground">监控服务运行中</p>
+                <div className="text-2xl font-bold text-green-600">
+                  {domains.filter(d => d.enabled).length}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">已暂停</CardTitle>
+                <XCircle className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {domains.filter(d => !d.enabled).length}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -164,85 +238,112 @@ function WhoisDomainsContent() {
           {/* Domains List */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5" />
-                域名列表
-              </CardTitle>
+              <CardTitle>Whois域名列表</CardTitle>
               <CardDescription>
-                当前监控的whois域名列表 ({domains.length} 个域名)
+                管理所有监控的Whois域名及其配置
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {loading && domains.length === 0 ? (
-                <div className="flex items-center justify-center py-8">
-                  <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                  <span>加载中...</span>
-                </div>
-              ) : domains.length > 0 ? (
-                <div className="space-y-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>域名</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>域名有效期</TableHead>
+                    <TableHead>最后更新时间</TableHead>
+                    <TableHead>自动更新</TableHead>
+                    <TableHead>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {domains.map((domain) => (
-                    <div 
-                      key={domain.id} 
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 bg-muted rounded-full">
+                    <TableRow key={domain.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center space-x-2">
                           <Globe className="h-4 w-4 text-muted-foreground" />
+                          <span>{domain.domain}</span>
                         </div>
-                        <div>
-                          <div className="font-medium">{domain.domain}</div>
-                          <div className="text-sm text-muted-foreground flex items-center gap-4">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              创建时间: {formatDate(domain.created_at)}
-                            </span>
-                            {domain.enabled ? (
-                              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                                已启用
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200">
-                                已禁用
-                              </Badge>
-                            )}
-                          </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={domain.enabled
+                            ? "text-green-600 bg-green-50 border-green-200"
+                            : "text-red-600 bg-red-50 border-red-200"
+                          }
+                        >
+                          {domain.enabled ? (
+                            <><CheckCircle className="h-3 w-3 mr-1" />活跃</>
+                          ) : (
+                            <><XCircle className="h-3 w-3 mr-1" />已暂停</>
+                          )}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(domain.expiration_date)}
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(domain.updated_at)}
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={domain.auto_update}
+                          onCheckedChange={() => toggleAutoUpdate(domain.id, domain.auto_update)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleDomainStatus(domain.id)}
+                            disabled={loading}
+                          >
+                            {domain.enabled ? '禁用' : '启用'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(domain)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(domain.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <WhoisDomainEditDialog
-                          domain={domain}
-                          onSuccess={handleEditSuccess}
-                        />
-                        <WhoisDomainDeleteDialog
-                          domain={domain}
-                          onSuccess={handleDeleteSuccess}
-                        />
-                      </div>
-                    </div>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Globe className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <div className="text-lg font-medium mb-2">暂无域名</div>
-                  <div className="text-muted-foreground mb-4">
-                    还没有添加需要监控whois信息的域名
-                  </div>
-                  <WhoisDomainAddDialog 
-                    onSuccess={handleAddSuccess}
-                    trigger={
-                      <Button>
-                        <Plus className="h-4 w-4 mr-2" />
-                        添加第一个域名
-                      </Button>
-                    }
-                  />
+                </TableBody>
+              </Table>
+              {domains.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Globe className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>还没有添加任何Whois域名</p>
+                  <p className="text-sm">点击&quot;添加域名&quot;按钮开始监控域名whois信息</p>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
       </AdminLayout>
+
+      {/* Edit Dialog */}
+      {editingDomain && (
+        <WhoisDomainEditDialog
+          domain={editingDomain}
+          onSuccess={handleEditSuccess}
+          trigger={null}
+          open={!!editingDomain}
+          onOpenChange={(open) => !open && setEditingDomain(null)}
+        />
+      )}
     </AuthGuard>
   );
 }
