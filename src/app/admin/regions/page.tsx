@@ -314,7 +314,7 @@ export default function RegionsPage() {
                     <TableHead>区域名称</TableHead>
                     <TableHead>子网</TableHead>
                     <TableHead>状态</TableHead>
-                    <TableHead>创建时间</TableHead>
+                    <TableHead>最后更新时间</TableHead>
                     <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -352,7 +352,7 @@ export default function RegionsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {region.createdAt.toLocaleDateString('zh-CN')}
+                        {region.updatedAt.toLocaleDateString('zh-CN')}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">

@@ -303,7 +303,7 @@ export default function DomainsPage() {
                     <TableHead>域名</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead>检查间隔</TableHead>
-                    <TableHead>创建时间</TableHead>
+                    <TableHead>最后更新时间</TableHead>
                     <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -333,7 +333,7 @@ export default function DomainsPage() {
                       </TableCell>
                       <TableCell>{domain.checkInterval} 分钟</TableCell>
                       <TableCell>
-                        {domain.createdAt.toLocaleDateString('zh-CN')}
+                        {domain.updatedAt.toLocaleDateString('zh-CN')}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
