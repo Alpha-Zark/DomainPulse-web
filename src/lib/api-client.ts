@@ -309,8 +309,9 @@ export const cacheApi = {
  */
 export const whoisDomainsApi = {
   // Get all whois domains (Admin API)
-  async getAll(): Promise<AdminListResponse<AdminWhoisDomain>> {
-    return apiRequest<AdminListResponse<AdminWhoisDomain>>('/admin/whois/list');
+  async getAll(refreshCache: boolean = false): Promise<AdminListResponse<AdminWhoisDomain>> {
+    const url = refreshCache ? '/admin/whois/list?refresh_cache=true' : '/admin/whois/list';
+    return apiRequest<AdminListResponse<AdminWhoisDomain>>(url);
   },
 
   // Create whois domain (Admin API)

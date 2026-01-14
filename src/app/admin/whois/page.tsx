@@ -31,12 +31,12 @@ function WhoisDomainsContent() {
   const [error, setError] = useState<string | null>(null);
   const [editingDomain, setEditingDomain] = useState<AdminWhoisDomain | null>(null);
 
-  const fetchDomains = async () => {
+  const fetchDomains = async (refreshCache: boolean = false) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await whoisDomainsApi.getAll();
+      const response = await whoisDomainsApi.getAll(refreshCache);
       setDomains(response.data);
     } catch (error) {
       console.error('Failed to fetch whois domains:', error);
@@ -59,7 +59,7 @@ function WhoisDomainsContent() {
   }, []);
 
   const handleRefresh = async () => {
-    await fetchDomains();
+    await fetchDomains(true);
   };
 
   const handleAddSuccess = async () => {
@@ -155,13 +155,11 @@ function WhoisDomainsContent() {
     if (!isoString || isoString === '0001-01-01T00:00:00Z') {
       return '-';
     }
-    return new Date(isoString).toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const date = new Date(isoString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   return (
@@ -250,7 +248,6 @@ function WhoisDomainsContent() {
                     <TableHead>域名</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead>域名有效期</TableHead>
-                    <TableHead>最后更新时间</TableHead>
                     <TableHead>自动更新</TableHead>
                     <TableHead>操作</TableHead>
                   </TableRow>
@@ -281,9 +278,6 @@ function WhoisDomainsContent() {
                       </TableCell>
                       <TableCell>
                         {formatDate(domain.expiration_date)}
-                      </TableCell>
-                      <TableCell>
-                        {formatDate(domain.updated_at)}
                       </TableCell>
                       <TableCell>
                         <Switch
