@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { DomainSslStatus } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, RefreshCw, Shield } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw, Shield, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface DomainSslTableProps {
   domains: DomainSslStatus[];
@@ -104,8 +104,13 @@ function getDomainStatusBadge(status: string, minDays: number) {
   }
 }
 
+type SortField = 'domain' | 'status' | 'minDays';
+type SortOrder = 'asc' | 'desc' | null;
+
 export default function DomainSslTable({ domains, loading = false, onRefresh }: DomainSslTableProps) {
   const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set());
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>(null);
 
   const toggleDomain = (domain: string) => {
     const newExpanded = new Set(expandedDomains);
@@ -115,6 +120,69 @@ export default function DomainSslTable({ domains, loading = false, onRefresh }: 
       newExpanded.add(domain);
     }
     setExpandedDomains(newExpanded);
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // 循环: asc -> desc -> null
+      if (sortOrder === 'asc') {
+        setSortOrder('desc');
+      } else if (sortOrder === 'desc') {
+        setSortOrder(null);
+        setSortField(null);
+      }
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const getStatusPriority = (status: string, minDays: number): number => {
+    if (status === 'error') return 0;
+    if (status === 'no_data') return 1;
+    if (minDays <= 0) return 2;
+    if (minDays <= 7) return 3;
+    if (minDays <= 30) return 4;
+    return 5;
+  };
+
+  const sortedDomains = useMemo(() => {
+    if (!sortField || !sortOrder) {
+      return domains;
+    }
+
+    const sorted = [...domains].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case 'domain':
+          comparison = a.domain.localeCompare(b.domain);
+          break;
+        case 'status':
+          comparison = getStatusPriority(a.status, a.minDays) - getStatusPriority(b.status, b.minDays);
+          break;
+        case 'minDays':
+          // 将 error 和 no_data 状态的 minDays 视为最小值
+          const aValue = a.status === 'success' ? a.minDays : -1;
+          const bValue = b.status === 'success' ? b.minDays : -1;
+          comparison = aValue - bValue;
+          break;
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [domains, sortField, sortOrder]);
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 ml-1" />;
+    }
+    if (sortOrder === 'asc') {
+      return <ArrowUp className="h-4 w-4 ml-1" />;
+    }
+    return <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
   return (
@@ -171,9 +239,36 @@ export default function DomainSslTable({ domains, loading = false, onRefresh }: 
           <TableHeader>
             <TableRow>
               <TableHead className="w-12"></TableHead>
-              <TableHead>域名</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>MinDays</TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('domain')}
+                  className="h-auto p-0 font-medium hover:bg-transparent"
+                >
+                  域名
+                  {getSortIcon('domain')}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('status')}
+                  className="h-auto p-0 font-medium hover:bg-transparent"
+                >
+                  状态
+                  {getSortIcon('status')}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('minDays')}
+                  className="h-auto p-0 font-medium hover:bg-transparent"
+                >
+                  MinDays
+                  {getSortIcon('minDays')}
+                </Button>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -193,7 +288,7 @@ export default function DomainSslTable({ domains, loading = false, onRefresh }: 
                 </TableCell>
               </TableRow>
             ) : (
-              domains.map((domain) => (
+              sortedDomains.map((domain) => (
                 <Collapsible key={domain.domain} asChild>
                   <>
                     <TableRow className="hover:bg-muted/50">

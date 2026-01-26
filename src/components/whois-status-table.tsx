@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DomainWhoisStatus } from '@/types/api';
 import { getWhoisStatusBadge, formatExpiryDate } from '@/lib/whois-utils';
-import { RefreshCw, Globe, Calendar } from 'lucide-react';
+import { RefreshCw, Globe, Calendar, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface WhoisStatusTableProps {
   domains: DomainWhoisStatus[];
@@ -15,8 +15,13 @@ interface WhoisStatusTableProps {
   onRefresh: () => Promise<void>;
 }
 
+type SortField = 'domain' | 'expiryDate' | 'daysUntilExpiry';
+type SortOrder = 'asc' | 'desc' | null;
+
 export default function WhoisStatusTable({ domains, loading, onRefresh }: WhoisStatusTableProps) {
   const [refreshing, setRefreshing] = useState(false);
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>(null);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -25,6 +30,63 @@ export default function WhoisStatusTable({ domains, loading, onRefresh }: WhoisS
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // 循环: asc -> desc -> null
+      if (sortOrder === 'asc') {
+        setSortOrder('desc');
+      } else if (sortOrder === 'desc') {
+        setSortOrder(null);
+        setSortField(null);
+      }
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const sortedDomains = useMemo(() => {
+    if (!sortField || !sortOrder) {
+      return domains;
+    }
+
+    const sorted = [...domains].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case 'domain':
+          comparison = a.domain.localeCompare(b.domain);
+          break;
+        case 'expiryDate':
+          // 处理空值和无效日期
+          const aDate = a.expiryDate ? new Date(a.expiryDate).getTime() : 0;
+          const bDate = b.expiryDate ? new Date(b.expiryDate).getTime() : 0;
+          comparison = aDate - bDate;
+          break;
+        case 'daysUntilExpiry':
+          // 处理 undefined 值，将其视为最大值（排在最后）
+          const aDays = a.daysUntilExpiry !== undefined ? a.daysUntilExpiry : Number.MAX_SAFE_INTEGER;
+          const bDays = b.daysUntilExpiry !== undefined ? b.daysUntilExpiry : Number.MAX_SAFE_INTEGER;
+          comparison = aDays - bDays;
+          break;
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [domains, sortField, sortOrder]);
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 ml-1" />;
+    }
+    if (sortOrder === 'asc') {
+      return <ArrowUp className="h-4 w-4 ml-1" />;
+    }
+    return <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
   const getStatusText = (status: string, daysUntilExpiry?: number) => {
@@ -128,14 +190,41 @@ export default function WhoisStatusTable({ domains, loading, onRefresh }: WhoisS
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[250px]">域名</TableHead>
-                <TableHead>到期日期</TableHead>
-                <TableHead>剩余天数</TableHead>
+                <TableHead className="w-[250px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort('domain')}
+                    className="h-auto p-0 font-medium hover:bg-transparent"
+                  >
+                    域名
+                    {getSortIcon('domain')}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort('expiryDate')}
+                    className="h-auto p-0 font-medium hover:bg-transparent"
+                  >
+                    到期日期
+                    {getSortIcon('expiryDate')}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort('daysUntilExpiry')}
+                    className="h-auto p-0 font-medium hover:bg-transparent"
+                  >
+                    剩余天数
+                    {getSortIcon('daysUntilExpiry')}
+                  </Button>
+                </TableHead>
                 <TableHead>状态</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {domains.map((domain) => (
+              {sortedDomains.map((domain) => (
                 <TableRow key={domain.domain}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
